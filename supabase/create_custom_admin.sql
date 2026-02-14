@@ -38,7 +38,7 @@ INSERT INTO auth.users (
     now(),
     now(),
     '{"provider":"email","providers":["email"]}',
-    '{"full_name":"My Admin Name"}',   -- 🔴 REPLACE WITH YOUR NAME
+    '{"full_name":"My Admin Name", "role":"admin"}',   -- 🔴 Added role to metadata
     now(),
     now(),
     '',

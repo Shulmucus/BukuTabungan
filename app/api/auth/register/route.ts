@@ -18,10 +18,8 @@ export async function POST(request: NextRequest) {
 
         const supabase = await createClient();
 
-        // Check if admin is making this request
-        const {
-            data: { user: currentUser },
-        } = await supabase.auth.getUser();
+        const authResponse = await supabase.auth.getUser();
+        const currentUser = authResponse.data?.user;
 
         let assignedRole = role || 'nasabah';
 
@@ -129,10 +127,14 @@ export async function POST(request: NextRequest) {
             message: 'Akun berhasil dibuat',
             userId: authData.user.id,
         });
-    } catch (error) {
+    } catch (error: any) {
         console.error('Register error:', error);
         return NextResponse.json(
-            { success: false, error: 'Terjadi kesalahan server' },
+            {
+                success: false,
+                error: 'Terjadi kesalahan server: ' + (error.message || 'Unknown error'),
+                debug: process.env.NODE_ENV === 'development' ? error.stack : undefined
+            },
             { status: 500 },
         );
     }
