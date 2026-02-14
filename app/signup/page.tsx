@@ -30,7 +30,15 @@ export default function SignupPage() {
                 body: JSON.stringify({ ...form, role: 'nasabah' }), // Default public signup is nasabah
             });
 
-            const data = await res.json();
+            let data;
+            try {
+                data = await res.json();
+            } catch (jsonError) {
+                console.error('Failed to parse JSON response:', jsonError);
+                const text = await res.text();
+                console.error('Raw response:', text);
+                throw new Error('Server responded with non-JSON data');
+            }
 
             if (data.success) {
                 // Redirect to login with success message
@@ -38,8 +46,9 @@ export default function SignupPage() {
             } else {
                 setError(data.error || 'Gagal mendaftar');
             }
-        } catch {
-            setError('Terjadi kesalahan koneksi');
+        } catch (err) {
+            console.error('Signup error:', err);
+            setError('Terjadi kesalahan koneksi atau server');
         } finally {
             setLoading(false);
         }
