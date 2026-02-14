@@ -20,12 +20,15 @@ export default async function DashboardLayout({ children }: { children: React.Re
         .eq('id', user.id)
         .single();
 
-    if (!userData) {
+    const role = userData?.role || user.user_metadata?.role;
+    const fullName = userData?.full_name || user.user_metadata?.full_name || 'User';
+
+    if (!role) {
         redirect('/login');
     }
 
     return (
-        <DashboardShell role={userData.role} fullName={userData.full_name}>
+        <DashboardShell role={role} fullName={fullName}>
             {children}
         </DashboardShell>
     );

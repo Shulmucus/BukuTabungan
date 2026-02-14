@@ -58,7 +58,9 @@ export async function updateSession(request: NextRequest) {
                 .eq('id', user.id)
                 .single();
 
-            const role = userData?.role || 'nasabah';
+            // FALLBACK TO METADATA (Crucial for ad-hoc SQL created users or sync delays)
+            const role = userData?.role || user.user_metadata?.role || 'nasabah';
+
             const url = request.nextUrl.clone();
             url.pathname = `/dashboard/${role}`;
             return NextResponse.redirect(url);
@@ -72,10 +74,11 @@ export async function updateSession(request: NextRequest) {
                 .eq('id', user.id)
                 .single();
 
-            const role = userData?.role;
+            const role = userData?.role || user.user_metadata?.role;
             const pathSegments = request.nextUrl.pathname.split('/');
             const dashboardRole = pathSegments[2]; // /dashboard/{role}/...
 
+            // If we have a role and it doesn't match the current dashboard path → redirect
             if (role && dashboardRole && role !== dashboardRole) {
                 const url = request.nextUrl.clone();
                 url.pathname = `/dashboard/${role}`;
