@@ -1,0 +1,18 @@
+-- =============================================
+-- Admin Seed Script
+-- =============================================
+-- Since we cannot create Auth users directly via SQL without the service role key in a client,
+-- this script is a placeholder/guide.
+--
+-- HOWEVER, we implemented auto-promotion logic in `app/api/auth/register/route.ts`.
+--
+-- INSTRUCTIONS:
+-- 1. Go to the Sign Up page (/signup)
+-- 2. Register with:
+--    Email: admin@gmail.com
+--    Username: Admin
+--    Password: admin123
+-- 3. The system will automatically assign the 'admin' role to this specific email.
+
+-- Optional: If you want to manually promote an existing user to admin via SQL:
+-- UPDATE users SET role = 'admin' WHERE email = 'your.email@example.com';
