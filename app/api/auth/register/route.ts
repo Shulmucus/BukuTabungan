@@ -7,7 +7,7 @@ import { generateAccountNumber } from '@/lib/utils';
 export async function POST(request: NextRequest) {
     try {
         const body = await request.json();
-        const { email, username, password, full_name, phone_number, pin, address, id_card_number, date_of_birth, role } = body;
+        const { email, username, password, full_name, phone_number, address, id_card_number, date_of_birth, role } = body;
 
         if (!email || !username || !password || !full_name) {
             return NextResponse.json(
@@ -16,8 +16,14 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        const supabase = await createClient();
+        // Server-side password validation
+        const { validatePassword } = await import('@/lib/validation');
+        const passwordVal = validatePassword(password);
+        if (!passwordVal.isValid) {
+            return NextResponse.json({ success: false, error: passwordVal.error }, { status: 400 });
+        }
 
+        const supabase = await createClient();
         const authResponse = await supabase.auth.getUser();
         const currentUser = authResponse.data?.user;
 
@@ -69,31 +75,16 @@ export async function POST(request: NextRequest) {
         });
 
         if (userError) {
-            // Rollback auth user creation if DB insert fails (optional but good practice)
-            // await supabase.auth.admin.deleteUser(authData.user.id);
             return NextResponse.json(
                 { success: false, error: 'Gagal menyimpan data user: ' + userError.message },
                 { status: 500 },
             );
         }
 
-        // If role is nasabah, create profile (PIN can be null initially, set via /setup-pin)
+        // If role is nasabah, create profile (PIN set to NO_PIN_SET initially)
         if (assignedRole === 'nasabah') {
             const accountNumber = generateAccountNumber();
-            let pinHash = '';
-
-            // If PIN is provided (e.g. by admin), hash it. Otherwise leave empty string/null logic
-            // Migration schema has pin_hash NOT NULL, so we need to handle this.
-            // Option 1: Requirement change -> Allow NULL pin_hash in DB?
-            // Option 2: Use a strict placeholder that fails login? 
-            // Better: Update migration to allow NULL pin_hash OR provide strict dummy.
-            // Let's assume we modify migration or use a placeholder that clearly indicates "NO_PIN_SET"
-
-            if (pin && pin.length === 6) {
-                pinHash = await bcrypt.hash(pin, 10);
-            } else {
-                pinHash = 'NO_PIN_SET'; // Flag for middleware/login to detect and redirect
-            }
+            const pinHash = 'NO_PIN_SET'; // Must be set via /setup-pin
 
             const { error: profileError } = await supabase.from('nasabah_profiles').insert({
                 user_id: authData.user.id,

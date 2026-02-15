@@ -5,7 +5,7 @@ import { Header } from '@/components/ui/Header';
 import { DataTable } from '@/components/ui/DataTable';
 import { Badge } from '@/components/ui/Badge';
 import { Modal } from '@/components/ui/Modal';
-import { FormInput, FormSelect, FormTextarea } from '@/components/ui/FormField';
+import { FormInput, FormSelect, FormTextarea, CurrencyInput } from '@/components/ui/FormField';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { PinModal } from '@/components/ui/PinModal';
 import { formatCurrency, formatDate, transactionTypeLabels } from '@/lib/utils';
@@ -60,44 +60,30 @@ export default function AdminTransactionsPage() {
         setShowPin(true);
     };
 
-    const handlePinVerified = async (pin: string): Promise<boolean> => {
-        const res = await fetch('/api/verify-pin', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ nasabahId: createForm.nasabah_id, pin }),
-        });
-        const data = await res.json();
-        if (!data.success) return false;
-
-        setShowPin(false);
-        await submitTransaction();
-        return true;
-    };
-
-    const submitTransaction = async () => {
+    const handlePinVerified = async (pin: string): Promise<{ success: boolean; error?: string }> => {
         setFormLoading(true);
         setError('');
-
         try {
             const res = await fetch('/api/transactions', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    ...createForm,
-                    amount: Number(createForm.amount),
-                }),
+                body: JSON.stringify({ ...createForm, pin, amount: Number(createForm.amount) }),
             });
-            const json = await res.json();
 
-            if (json.success) {
+            const result = await res.json();
+            if (result.success) {
+                setShowPin(false);
                 setShowCreate(false);
                 setCreateForm({ nasabah_id: '', transaction_type: 'deposit', amount: '', description: '' });
                 fetchData();
+                return { success: true };
             } else {
-                setError(json.error || 'Gagal membuat transaksi');
+                setError(result.error || 'Terjadi kesalahan sistem');
+                return { success: false, error: result.error || 'Terjadi kesalahan sistem' };
             }
-        } catch {
-            setError('Terjadi kesalahan');
+        } catch (err: any) {
+            setError('Gagal memproses transaksi');
+            return { success: false, error: 'Gagal memproses transaksi' };
         } finally {
             setFormLoading(false);
         }
@@ -188,10 +174,12 @@ export default function AdminTransactionsPage() {
                         value={createForm.nasabah_id}
                         onChange={(e) => setCreateForm((f) => ({ ...f, nasabah_id: e.target.value }))}
                         placeholder="Pilih nasabah"
-                        options={nasabahList.map((n) => ({
-                            value: n.id,
-                            label: `${n.account_number} — ${n.user?.full_name || ''} (${formatCurrency(Number(n.balance))})`,
-                        }))}
+                        options={nasabahList
+                            .filter(n => n.user?.role === 'nasabah')
+                            .map((n) => ({
+                                value: n.id,
+                                label: `${n.account_number} — ${n.user?.full_name || ''} (${formatCurrency(Number(n.balance))})`,
+                            }))}
                     />
                     <FormSelect
                         label="Jenis Transaksi"
@@ -203,13 +191,11 @@ export default function AdminTransactionsPage() {
                             { value: 'withdrawal', label: 'Penarikan' },
                         ]}
                     />
-                    <FormInput
+                    <CurrencyInput
                         label="Jumlah (Rp)"
-                        type="number"
                         required
-                        min={1}
                         value={createForm.amount}
-                        onChange={(e) => setCreateForm((f) => ({ ...f, amount: e.target.value }))}
+                        onChange={(val) => setCreateForm((f) => ({ ...f, amount: val }))}
                     />
                     <FormTextarea
                         label="Keterangan"

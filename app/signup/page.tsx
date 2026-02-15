@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { FormInput } from '@/components/ui/FormField';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
+import { validatePassword } from '@/lib/validation';
 import Link from 'next/link';
 
 export default function SignupPage() {
@@ -14,6 +15,7 @@ export default function SignupPage() {
         username: '',
         email: '',
         password: '',
+        confirmPassword: '',
         full_name: '',
         phone_number: '',
     });
@@ -23,26 +25,39 @@ export default function SignupPage() {
         setLoading(true);
         setError('');
 
+        // 1. Validate Form
+        if (form.password !== form.confirmPassword) {
+            setError('Password konfirmasi tidak cocok');
+            setLoading(false);
+            return;
+        }
+
+        const passwordValidation = validatePassword(form.password);
+        if (!passwordValidation.isValid) {
+            setError(passwordValidation.error || 'Password tidak memenuhi syarat');
+            setLoading(false);
+            return;
+        }
+
         try {
             const res = await fetch('/api/auth/register', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ ...form, role: 'nasabah' }), // Default public signup is nasabah
+                body: JSON.stringify({
+                    email: form.email,
+                    username: form.username,
+                    password: form.password,
+                    full_name: form.full_name,
+                    phone_number: form.phone_number,
+                    role: 'nasabah'
+                }),
             });
 
-            let data;
-            try {
-                data = await res.json();
-            } catch (jsonError) {
-                console.error('Failed to parse JSON response:', jsonError);
-                const text = await res.text();
-                console.error('Raw response:', text);
-                throw new Error('Server responded with non-JSON data');
-            }
+            const data = await res.json();
 
             if (data.success) {
-                // Redirect to login with success message
-                router.push('/login?registered=true');
+                // Redirect to setup-pin for nasabah
+                router.push('/setup-pin');
             } else {
                 setError(data.error || 'Gagal mendaftar');
             }
@@ -55,7 +70,7 @@ export default function SignupPage() {
     };
 
     return (
-        <div className="min-h-screen w-full bg-gradient-hero flex items-center justify-center p-4">
+        <div className="min-h-screen w-full bg-gradient-hero flex items-center justify-center p-4 py-12">
             <div className="w-full max-w-md space-y-8 animate-fade-in relative z-10">
                 <div className="text-center">
                     <h1 className="text-3xl font-bold text-white mb-2">Buat Akun Baru</h1>
@@ -106,6 +121,17 @@ export default function SignupPage() {
                                 placeholder="••••••••"
                                 value={form.password}
                                 onChange={(e) => setForm({ ...form, password: e.target.value })}
+                                className="bg-white/5 border-white/10 text-white placeholder:text-white/30 focus:border-white/50 focus:ring-white/50"
+                                labelClassName="text-white/80"
+                                hint="Min. 8 karakter, ada angka, huruf besar & kecil"
+                            />
+                            <FormInput
+                                label="Konfirmasi Password"
+                                type="password"
+                                required
+                                placeholder="••••••••"
+                                value={form.confirmPassword}
+                                onChange={(e) => setForm({ ...form, confirmPassword: e.target.value })}
                                 className="bg-white/5 border-white/10 text-white placeholder:text-white/30 focus:border-white/50 focus:ring-white/50"
                                 labelClassName="text-white/80"
                             />

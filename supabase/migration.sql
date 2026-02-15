@@ -31,6 +31,8 @@ CREATE TABLE nasabah_profiles (
   address TEXT,
   id_card_number TEXT,
   date_of_birth DATE,
+  transaction_limit DECIMAL(15,2) NOT NULL DEFAULT 10000000,
+  is_active BOOLEAN NOT NULL DEFAULT true,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   UNIQUE(user_id)
@@ -143,6 +145,9 @@ CREATE POLICY "Admin can delete users" ON users
 -- Nasabah profiles policies
 CREATE POLICY "Nasabah can view own profile" ON nasabah_profiles
   FOR SELECT USING (user_id = auth.uid());
+
+CREATE POLICY "Nasabah can update own profile" ON nasabah_profiles
+  FOR UPDATE USING (user_id = auth.uid());
 
 CREATE POLICY "Admin and staff can view all profiles" ON nasabah_profiles
   FOR SELECT USING (

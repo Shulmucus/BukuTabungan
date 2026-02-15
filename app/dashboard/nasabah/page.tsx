@@ -11,31 +11,59 @@ import {
     HiOutlineBanknotes,
     HiOutlineCreditCard,
     HiOutlineClock,
+    HiOutlineArrowsRightLeft,
 } from 'react-icons/hi2';
+import { PinModal } from '@/components/ui/PinModal';
+import { Modal } from '@/components/ui/Modal';
+import { FormInput } from '@/components/ui/FormField';
 
 export default function NasabahDashboard() {
     const [profile, setProfile] = useState<NasabahProfile | null>(null);
     const [recentTx, setRecentTx] = useState<Transaction[]>([]);
     const [loading, setLoading] = useState(true);
 
-    useEffect(() => {
-        async function fetchData() {
-            try {
-                const [profileRes, txRes] = await Promise.all([
-                    fetch('/api/nasabah/me'),
-                    fetch('/api/nasabah/me/transactions?pageSize=5'),
-                ]);
-                const profileData = await profileRes.json();
-                const txData = await txRes.json();
+    const [showTxModal, setShowTxModal] = useState(false);
+    const [showPinModal, setShowPinModal] = useState(false);
+    const [txType, setTxType] = useState<'deposit' | 'withdrawal' | 'transfer_out'>('deposit');
+    const [txForm, setTxForm] = useState({ amount: '', description: '', toAccount: '' });
+    const [txLoading, setTxLoading] = useState(false);
+    const [txError, setTxError] = useState('');
 
-                if (profileData.success) setProfile(profileData.data);
-                if (txData.success) setRecentTx(txData.data || []);
-            } catch (err) {
-                console.error(err);
-            } finally {
-                setLoading(false);
+    const fetchData = async () => {
+        try {
+            console.log('Fetching nasabah dashboard data...');
+            const [profileRes, txRes] = await Promise.all([
+                fetch('/api/nasabah/me'),
+                fetch('/api/nasabah/me/transactions?pageSize=5'),
+            ]);
+
+            console.log('Profile Response Status:', profileRes.status, profileRes.headers.get('content-type'));
+            console.log('Transactions Response Status:', txRes.status, txRes.headers.get('content-type'));
+
+            if (!profileRes.ok) {
+                const text = await profileRes.text();
+                console.error('Profile fetch failed:', text.substring(0, 100));
+                return;
             }
+            if (!txRes.ok) {
+                const text = await txRes.text();
+                console.error('Transactions fetch failed:', text.substring(0, 100));
+                return;
+            }
+
+            const profileData = await profileRes.json();
+            const txData = await txRes.json();
+
+            if (profileData.success) setProfile(profileData.data);
+            if (txData.success) setRecentTx(txData.data || []);
+        } catch (err) {
+            console.error('FetchData error details:', err);
+        } finally {
+            setLoading(false);
         }
+    };
+
+    useEffect(() => {
         fetchData();
     }, []);
 
@@ -70,43 +98,78 @@ export default function NasabahDashboard() {
                 </div>
             </div>
 
+            <div className="grid grid-cols-3 gap-4 mb-8">
+                <button
+                    onClick={() => { setTxType('deposit'); setShowTxModal(true); }}
+                    className="flex flex-col items-center gap-2 p-4 rounded-2xl bg-white border border-surface-100 hover:border-primary-200 hover:bg-primary-50 transition-all group shadow-sm"
+                >
+                    <div className="w-12 h-12 rounded-xl bg-green-100 text-green-600 flex items-center justify-center group-hover:scale-110 transition-transform">
+                        <HiOutlineBanknotes className="w-6 h-6" />
+                    </div>
+                    <span className="text-xs font-semibold text-surface-700">Setor Tunai</span>
+                </button>
+                <button
+                    onClick={() => { setTxType('withdrawal'); setShowTxModal(true); }}
+                    className="flex flex-col items-center gap-2 p-4 rounded-2xl bg-white border border-surface-100 hover:border-danger-200 hover:bg-danger-50 transition-all group shadow-sm"
+                >
+                    <div className="w-12 h-12 rounded-xl bg-red-100 text-red-600 flex items-center justify-center group-hover:scale-110 transition-transform">
+                        <HiOutlineBanknotes className="w-6 h-6" />
+                    </div>
+                    <span className="text-xs font-semibold text-surface-700">Tarik Tunai</span>
+                </button>
+                <button
+                    onClick={() => { setTxType('transfer_out'); setShowTxModal(true); }}
+                    className="flex flex-col items-center gap-2 p-4 rounded-2xl bg-white border border-surface-100 hover:border-indigo-200 hover:bg-indigo-50 transition-all group shadow-sm"
+                >
+                    <div className="w-12 h-12 rounded-xl bg-indigo-100 text-indigo-600 flex items-center justify-center group-hover:scale-110 transition-transform">
+                        <HiOutlineArrowsRightLeft className="w-6 h-6" />
+                    </div>
+                    <span className="text-xs font-semibold text-surface-700">Transfer</span>
+                </button>
+            </div>
+
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
-                <div className="animate-fade-in animate-delay-1">
-                    <StatCard
-                        title="Saldo"
-                        value={formatCurrency(Number(profile?.balance || 0))}
-                        icon={<HiOutlineBanknotes />}
-                        color="success"
-                    />
-                </div>
-                <div className="animate-fade-in animate-delay-2">
-                    <StatCard
-                        title="No. Rekening"
-                        value={profile?.account_number || '-'}
-                        icon={<HiOutlineCreditCard />}
-                        color="primary"
-                    />
-                </div>
-                <div className="animate-fade-in animate-delay-3">
-                    <StatCard
-                        title="Transaksi Terakhir"
-                        value={recentTx.length}
-                        icon={<HiOutlineClock />}
-                        color="accent"
-                    />
-                </div>
+                <StatCard
+                    title="Saldo Tersedia"
+                    value={formatCurrency(Number(profile?.balance || 0))}
+                    icon={<HiOutlineBanknotes />}
+                    color="success"
+                    className="animate-fade-in animate-delay-1"
+                />
+                <StatCard
+                    title="No. Rekening"
+                    value={profile?.account_number || '-'}
+                    icon={<HiOutlineCreditCard />}
+                    color="primary"
+                    className="animate-fade-in animate-delay-2"
+                />
+                <StatCard
+                    title="Transaksi Terakhir"
+                    value={recentTx.length}
+                    icon={<HiOutlineClock />}
+                    color="accent"
+                    className="animate-fade-in animate-delay-3"
+                />
             </div>
 
             {/* Recent transactions */}
             <Card className="animate-fade-in">
                 <div className="flex items-center justify-between mb-4">
                     <h3 className="text-lg font-semibold text-surface-900">Transaksi Terakhir</h3>
-                    <a
-                        href="/dashboard/nasabah/transactions"
-                        className="text-sm text-primary-600 hover:text-primary-700 font-medium"
-                    >
-                        Lihat Semua →
-                    </a>
+                    <div className="flex gap-4">
+                        <a
+                            href="/dashboard/nasabah/recap"
+                            className="text-sm text-surface-500 hover:text-primary-600 font-medium transition-colors"
+                        >
+                            History Recap →
+                        </a>
+                        <a
+                            href="/dashboard/nasabah/transactions"
+                            className="text-sm text-primary-600 hover:text-primary-700 font-medium transition-colors"
+                        >
+                            Lihat Semua →
+                        </a>
+                    </div>
                 </div>
 
                 {recentTx.length === 0 ? (
@@ -145,6 +208,95 @@ export default function NasabahDashboard() {
                     </div>
                 )}
             </Card>
+            {/* Transaction Modal */}
+            <Modal
+                isOpen={showTxModal}
+                onClose={() => setShowTxModal(false)}
+                title={txType === 'deposit' ? 'Setor Tunai' : txType === 'withdrawal' ? 'Tarik Tunai' : 'Transfer Dana'}
+            >
+                <div className="space-y-4">
+                    {txType === 'transfer_out' && (
+                        <FormInput
+                            label="Rekening Tujuan"
+                            placeholder="Contoh: 1000..."
+                            value={txForm.toAccount}
+                            onChange={(e) => setTxForm({ ...txForm, toAccount: e.target.value })}
+                            required
+                        />
+                    )}
+                    <FormInput
+                        label="Nominal"
+                        type="number"
+                        placeholder="0"
+                        value={txForm.amount}
+                        onChange={(e) => setTxForm({ ...txForm, amount: e.target.value })}
+                        required
+                    />
+                    <FormInput
+                        label="Keterangan"
+                        placeholder="Opsional"
+                        value={txForm.description}
+                        onChange={(e) => setTxForm({ ...txForm, description: e.target.value })}
+                    />
+                    {txError && <p className="text-sm text-danger-500">{txError}</p>}
+                    <button
+                        onClick={() => {
+                            if (!txForm.amount || (txType === 'transfer_out' && !txForm.toAccount)) {
+                                setTxError('Harap lengkapi semua field');
+                                return;
+                            }
+                            setShowTxModal(false);
+                            setShowPinModal(true);
+                        }}
+                        className="w-full py-3 rounded-xl bg-primary-600 text-white font-semibold hover:bg-primary-700 transition-all shadow-lg"
+                    >
+                        Lanjutkan
+                    </button>
+                </div>
+            </Modal>
+
+            {/* PIN Modal */}
+            <PinModal
+                isOpen={showPinModal}
+                onClose={() => setShowPinModal(false)}
+                onVerify={async (pin) => {
+                    setTxLoading(true);
+                    setTxError('');
+                    try {
+                        const endpoint = txType === 'transfer_out' ? '/api/transfers' : '/api/transactions';
+                        const res = await fetch(endpoint, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                ...(txType === 'transfer_out'
+                                    ? { to_account: txForm.toAccount, from_nasabah_id: profile?.id }
+                                    : { nasabah_id: profile?.id, transaction_type: txType }),
+                                amount: Number(txForm.amount),
+                                description: txForm.description,
+                                pin // PIN for verification on server
+                            }),
+                        });
+                        const data = await res.json();
+                        if (data.success) {
+                            setShowTxModal(false);
+                            setShowPinModal(false);
+                            setTxForm({ amount: '', description: '', toAccount: '' });
+                            fetchData();
+                            return { success: true };
+                        } else {
+                            const errorMsg = data.error || 'Transaksi gagal';
+                            setTxError(errorMsg);
+                            return { success: false, error: errorMsg };
+                        }
+                    } catch (err: any) {
+                        const errorMsg = 'Terjadi kesalahan koneksi';
+                        setTxError(errorMsg);
+                        return { success: false, error: errorMsg };
+                    } finally {
+                        setTxLoading(false);
+                    }
+                }}
+            />
         </div>
     );
 }

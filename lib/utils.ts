@@ -21,6 +21,33 @@ export function formatCurrency(amount: number): string {
 }
 
 /**
+ * Format a number as compact Indonesian Rupiah (e.g., 1JT, 1M).
+ */
+export function formatCompactCurrency(amount: number): string {
+    const absAmount = Math.abs(amount);
+
+    const format = (num: number, suffix: string) => {
+        const formatted = (num).toFixed(2).replace(/\.?0+$/, '');
+        return `Rp ${formatted}${suffix}`;
+    };
+
+    if (absAmount >= 1_000_000_000_000) {
+        return format(amount / 1_000_000_000_000, 'T');
+    }
+    if (absAmount >= 1_000_000_000) {
+        return format(amount / 1_000_000_000, 'M');
+    }
+    if (absAmount >= 1_000_000) {
+        return format(amount / 1_000_000, 'JT');
+    }
+    if (absAmount >= 1_000) {
+        return format(amount / 1_000, 'RB');
+    }
+
+    return formatCurrency(amount);
+}
+
+/**
  * Format an ISO date string for display.
  */
 export function formatDate(dateStr: string, fmt: string = 'dd MMM yyyy'): string {

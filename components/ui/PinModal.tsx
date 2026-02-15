@@ -8,7 +8,7 @@ import { LoadingSpinner } from './LoadingSpinner';
 interface PinModalProps {
     isOpen: boolean;
     onClose: () => void;
-    onVerify: (pin: string) => Promise<boolean>;
+    onVerify: (pin: string) => Promise<{ success: boolean; error?: string }>;
     title?: string;
     description?: string;
 }
@@ -75,11 +75,15 @@ export function PinModal({
 
         setLoading(true);
         try {
-            const success = await onVerify(fullPin);
-            if (!success) {
-                setError('PIN salah. Silakan coba lagi.');
+            const result = await onVerify(fullPin);
+            if (!result.success) {
+                setError(result.error || 'PIN salah. Silakan coba lagi.');
                 setPin(Array(6).fill(''));
                 inputRefs.current[0]?.focus();
+            } else {
+                // Success - the parent onVerify handler will handle closing the modal
+                // if it needs to. Calling onClose() here can trigger unintended side effects
+                // (like logouts) if the parent uses onClose for cancellation.
             }
         } catch {
             setError('Terjadi kesalahan. Silakan coba lagi.');

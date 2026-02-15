@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { NextRequest, NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
 
@@ -13,10 +14,11 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        const supabase = await createClient();
+        const adminClient = createAdminClient();
+        const supabase = await createClient(); // Still call this if needed for session, but use admin for the query
 
-        // Look up by userId or nasabahId
-        let query = supabase.from('nasabah_profiles').select('pin_hash');
+        // Look up by userId or nasabahId (using adminClient to bypass RLS during login)
+        let query = adminClient.from('nasabah_profiles').select('pin_hash');
         if (nasabahId) {
             query = query.eq('id', nasabahId);
         } else if (userId) {

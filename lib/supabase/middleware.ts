@@ -37,13 +37,14 @@ export async function updateSession(request: NextRequest) {
         } = await supabase.auth.getUser();
 
         // Public paths that don't require auth
-        const publicPaths = ['/login', '/register', '/signup', '/setup-pin', '/auth/callback', '/global-error', '/api/auth'];
+        const publicPaths = ['/login', '/register', '/signup', '/setup-pin', '/auth/callback', '/global-error', '/api/auth', '/api/verify-pin'];
         const isPublicPath = publicPaths.some((p) =>
             request.nextUrl.pathname.startsWith(p),
         );
 
         // If not logged in and trying to access protected route → redirect to login
-        if (!user && !isPublicPath && request.nextUrl.pathname !== '/') {
+        // IMPORTANT: We skip this for /api routes to avoid returning HTML to fetches
+        if (!user && !isPublicPath && request.nextUrl.pathname !== '/' && !request.nextUrl.pathname.startsWith('/api')) {
             const url = request.nextUrl.clone();
             url.pathname = '/login';
             return NextResponse.redirect(url);

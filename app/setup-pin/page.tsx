@@ -1,43 +1,63 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
-import { HiCheckCircle, HiLockClosed } from 'react-icons/hi2';
+import { validatePin } from '@/lib/validation';
 
 export default function SetupPinPage() {
     const router = useRouter();
-    const [pin, setPin] = useState('');
-    const [confirmPin, setConfirmPin] = useState('');
+    const [pin, setPin] = useState(['', '', '', '', '', '']);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
+    const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
 
-    const handlePinChange = (e: React.ChangeEvent<HTMLInputElement>, setter: (v: string) => void) => {
-        const val = e.target.value.replace(/\D/g, '').slice(0, 6);
-        setter(val);
+    useEffect(() => {
+        // Focus first input on mount
+        if (inputRefs.current[0]) {
+            inputRefs.current[0].focus();
+        }
+    }, []);
+
+    const handleChange = (index: number, value: string) => {
+        if (!/^\d*$/.test(value)) return;
+
+        const newPin = [...pin];
+        newPin[index] = value.slice(-1);
+        setPin(newPin);
+
+        // Move to next input if value is entered
+        if (value && index < 5 && inputRefs.current[index + 1]) {
+            inputRefs.current[index + 1]?.focus();
+        }
     };
 
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
-        setError('');
-
-        if (pin.length !== 6) {
-            setError('PIN harus 6 digit angka');
-            return;
+    const handleKeyDown = (index: number, e: React.KeyboardEvent<HTMLInputElement>) => {
+        if (e.key === 'Backspace' && !pin[index] && index > 0 && inputRefs.current[index - 1]) {
+            inputRefs.current[index - 1]?.focus();
         }
-        if (pin !== confirmPin) {
-            setError('Konfirmasi PIN tidak cocok');
+    };
+
+    const handleSubmit = async (e?: React.FormEvent) => {
+        e?.preventDefault();
+        const pinString = pin.join('');
+
+        const pinValidation = validatePin(pinString);
+        if (!pinValidation.isValid) {
+            setError(pinValidation.error || 'PIN tidak valid');
             return;
         }
 
         setLoading(true);
+        setError('');
 
         try {
-            const res = await fetch('/api/nasabah/setup-pin', {
+            const res = await fetch('/api/auth/setup-pin', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ pin }),
+                body: JSON.stringify({ pin: pinString }),
             });
+
             const data = await res.json();
 
             if (data.success) {
@@ -45,70 +65,63 @@ export default function SetupPinPage() {
             } else {
                 setError(data.error || 'Gagal menyimpan PIN');
             }
-        } catch {
+        } catch (err) {
+            console.error('Setup PIN error:', err);
             setError('Terjadi kesalahan koneksi');
         } finally {
             setLoading(false);
         }
     };
 
+    // Auto submit when last digit is filled
+    useEffect(() => {
+        if (pin.every(digit => digit !== '') && !loading) {
+            handleSubmit();
+        }
+    }, [pin]);
+
     return (
         <div className="min-h-screen w-full bg-gradient-hero flex items-center justify-center p-4">
-            <div className="w-full max-w-md space-y-8 animate-fade-in relative z-10">
-                <div className="text-center">
-                    <div className="mx-auto w-16 h-16 rounded-full bg-white/10 flex items-center justify-center mb-4 backdrop-blur-sm border border-white/20">
-                        <HiLockClosed className="w-8 h-8 text-white" />
-                    </div>
-                    <h1 className="text-3xl font-bold text-white mb-2">Atur PIN Keamanan</h1>
-                    <p className="text-white/80">Buat PIN 6 digit untuk transaksi Anda</p>
+            <div className="w-full max-w-md space-y-8 animate-fade-in relative z-10 text-center">
+                <div>
+                    <h1 className="text-3xl font-bold text-white mb-2">Atur PIN Transaksi</h1>
+                    <p className="text-white/80">Keamanan ekstra untuk akun tabungan Anda</p>
                 </div>
 
                 <div className="p-8 shadow-2xl backdrop-blur-xl bg-white/10 border border-white/20 rounded-2xl">
-                    <form onSubmit={handleSubmit} className="space-y-6">
+                    <p className="text-sm text-white/60 mb-8">
+                        Masukkan 6 digit angka yang akan digunakan untuk setiap transaksi
+                    </p>
+
+                    <form onSubmit={handleSubmit} className="space-y-8">
                         {error && (
-                            <div className="p-3 rounded-lg bg-red-500/20 border border-red-500/50 text-red-200 text-sm text-center">
+                            <div className="p-3 rounded-lg bg-red-500/20 border border-red-500/50 text-red-200 text-sm mb-4">
                                 {error}
                             </div>
                         )}
 
-                        <div className="space-y-4">
-                            <div>
-                                <label className="block text-sm font-medium text-white/90 mb-1.5">PIN Baru (6 Digit)</label>
+                        <div className="flex justify-center gap-2 sm:gap-4">
+                            {pin.map((digit, index) => (
                                 <input
-                                    type="password"
-                                    value={pin}
-                                    onChange={(e) => handlePinChange(e, setPin)}
-                                    className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder:text-white/30 focus:outline-none focus:ring-2 focus:ring-white/50 focus:border-white/50 transition-all text-center tracking-[0.5em] text-lg font-bold"
-                                    placeholder="••••••"
-                                    maxLength={6}
-                                    required
+                                    key={index}
+                                    ref={(el) => { (inputRefs.current[index] = el) }}
+                                    type="text"
+                                    inputMode="numeric"
+                                    maxLength={1}
+                                    value={digit}
+                                    onChange={(e) => handleChange(index, e.target.value)}
+                                    onKeyDown={(e) => handleKeyDown(index, e)}
+                                    className="w-12 h-14 sm:w-14 sm:h-16 text-center text-2xl font-bold rounded-xl border border-white/20 bg-white/5 text-white focus:outline-none focus:ring-2 focus:ring-white/50 focus:border-white transition-all"
                                 />
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-white/90 mb-1.5">Konfirmasi PIN</label>
-                                <input
-                                    type="password"
-                                    value={confirmPin}
-                                    onChange={(e) => handlePinChange(e, setConfirmPin)}
-                                    className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder:text-white/30 focus:outline-none focus:ring-2 focus:ring-white/50 focus:border-white/50 transition-all text-center tracking-[0.5em] text-lg font-bold"
-                                    placeholder="••••••"
-                                    maxLength={6}
-                                    required
-                                />
-                            </div>
+                            ))}
                         </div>
 
                         <button
                             type="submit"
-                            disabled={loading || pin.length !== 6 || confirmPin.length !== 6}
-                            className="w-full flex justify-center items-center gap-2 py-3 px-4 rounded-xl text-sm font-semibold text-primary-900 bg-white hover:bg-white/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-primary-900 focus:ring-white transition-all disabled:opacity-70 disabled:cursor-not-allowed shadow-lg"
+                            disabled={loading || pin.some(d => d === '')}
+                            className="w-full flex justify-center py-3 px-4 rounded-xl text-sm font-semibold text-primary-900 bg-white hover:bg-white/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-primary-900 focus:ring-white transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
                         >
-                            {loading ? <LoadingSpinner size="sm" color="text-primary-900" /> : (
-                                <>
-                                    <HiCheckCircle className="w-5 h-5" />
-                                    Simpan PIN
-                                </>
-                            )}
+                            {loading ? <LoadingSpinner size="sm" color="text-primary-900" /> : 'Simpan PIN'}
                         </button>
                     </form>
                 </div>

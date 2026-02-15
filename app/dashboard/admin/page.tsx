@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { Header } from '@/components/ui/Header';
 import { StatCard } from '@/components/ui/Card';
-import { formatCurrency } from '@/lib/utils';
+import { formatCompactCurrency } from '@/lib/utils';
 import {
     HiOutlineUsers,
     HiOutlineBanknotes,
@@ -13,6 +13,7 @@ import {
 
 interface Stats {
     totalNasabah: number;
+    totalPetugas: number;
     totalBalance: number;
     todayTransactions: number;
     totalTransfers: number;
@@ -21,6 +22,7 @@ interface Stats {
 export default function AdminDashboard() {
     const [stats, setStats] = useState<Stats>({
         totalNasabah: 0,
+        totalPetugas: 0,
         totalBalance: 0,
         todayTransactions: 0,
         totalTransfers: 0,
@@ -30,30 +32,17 @@ export default function AdminDashboard() {
     useEffect(() => {
         async function fetchStats() {
             try {
-                const [nasabahRes, txRes, transferRes] = await Promise.all([
-                    fetch('/api/nasabah?pageSize=1'),
-                    fetch('/api/transactions?pageSize=1'),
-                    fetch('/api/transfers?pageSize=1'),
-                ]);
-
-                const nasabahData = await nasabahRes.json();
-                const txData = await txRes.json();
-                const transferData = await transferRes.json();
-
-                // Fetch all nasabah for total balance
-                const allNasabahRes = await fetch(`/api/nasabah?pageSize=${nasabahData.total || 100}`);
-                const allNasabah = await allNasabahRes.json();
-                const totalBalance = (allNasabah.data || []).reduce(
-                    (sum: number, n: { balance: number }) => sum + Number(n.balance),
-                    0,
-                );
-
-                setStats({
-                    totalNasabah: nasabahData.total || 0,
-                    totalBalance,
-                    todayTransactions: txData.total || 0,
-                    totalTransfers: transferData.total || 0,
-                });
+                const res = await fetch('/api/admin/stats');
+                const json = await res.json();
+                if (json.success) {
+                    setStats({
+                        totalNasabah: json.totalNasabah,
+                        totalPetugas: json.totalPetugas,
+                        totalBalance: json.totalBalance,
+                        todayTransactions: json.todayTransactions,
+                        totalTransfers: json.totalTransfers,
+                    });
+                }
             } catch (error) {
                 console.error('Failed to fetch stats:', error);
             } finally {
@@ -67,7 +56,7 @@ export default function AdminDashboard() {
         <div>
             <Header title="Dashboard Admin" subtitle="Selamat datang di panel administrasi" />
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
                 <div className="animate-fade-in animate-delay-1">
                     <StatCard
                         title="Total Nasabah"
@@ -78,13 +67,21 @@ export default function AdminDashboard() {
                 </div>
                 <div className="animate-fade-in animate-delay-2">
                     <StatCard
+                        title="Total Petugas"
+                        value={loading ? '...' : stats.totalPetugas}
+                        icon={<HiOutlineUsers />}
+                        color="primary"
+                    />
+                </div>
+                <div className="animate-fade-in animate-delay-3">
+                    <StatCard
                         title="Total Saldo"
-                        value={loading ? '...' : formatCurrency(stats.totalBalance)}
+                        value={loading ? '...' : formatCompactCurrency(stats.totalBalance)}
                         icon={<HiOutlineBanknotes />}
                         color="success"
                     />
                 </div>
-                <div className="animate-fade-in animate-delay-3">
+                <div className="animate-fade-in animate-delay-4">
                     <StatCard
                         title="Total Transaksi"
                         value={loading ? '...' : stats.todayTransactions}
@@ -92,7 +89,7 @@ export default function AdminDashboard() {
                         color="accent"
                     />
                 </div>
-                <div className="animate-fade-in animate-delay-4">
+                <div className="animate-fade-in animate-delay-5">
                     <StatCard
                         title="Total Transfer"
                         value={loading ? '...' : stats.totalTransfers}
@@ -120,27 +117,15 @@ export default function AdminDashboard() {
                             </div>
                         </a>
                         <a
-                            href="/dashboard/admin/transactions"
+                            href="/dashboard/admin/users"
                             className="flex items-center gap-3 p-3 rounded-xl hover:bg-surface-50 transition-colors group"
                         >
-                            <div className="w-10 h-10 rounded-lg bg-green-100 flex items-center justify-center text-green-600 group-hover:bg-green-200 transition-colors">
-                                <HiOutlineBanknotes className="w-5 h-5" />
+                            <div className="w-10 h-10 rounded-lg bg-indigo-100 flex items-center justify-center text-indigo-600 group-hover:bg-indigo-200 transition-colors">
+                                <HiOutlineUsers className="w-5 h-5" />
                             </div>
                             <div>
-                                <p className="text-sm font-medium text-surface-900">Transaksi Baru</p>
-                                <p className="text-xs text-surface-500">Buat setoran atau penarikan</p>
-                            </div>
-                        </a>
-                        <a
-                            href="/dashboard/admin/transfers"
-                            className="flex items-center gap-3 p-3 rounded-xl hover:bg-surface-50 transition-colors group"
-                        >
-                            <div className="w-10 h-10 rounded-lg bg-amber-100 flex items-center justify-center text-amber-600 group-hover:bg-amber-200 transition-colors">
-                                <HiOutlineArrowsRightLeft className="w-5 h-5" />
-                            </div>
-                            <div>
-                                <p className="text-sm font-medium text-surface-900">Transfer Dana</p>
-                                <p className="text-xs text-surface-500">Transfer antar rekening nasabah</p>
+                                <p className="text-sm font-medium text-surface-900">Kelola Petugas</p>
+                                <p className="text-xs text-surface-500">Atur akses dan reset password petugas</p>
                             </div>
                         </a>
                     </div>

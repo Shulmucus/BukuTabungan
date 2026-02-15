@@ -1,7 +1,6 @@
-'use client';
-
 import { cn } from '@/lib/utils';
-import { ReactNode, useEffect, useRef } from 'react';
+import { ReactNode, useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { HiXMark } from 'react-icons/hi2';
 
 interface ModalProps {
@@ -22,8 +21,10 @@ const sizeMap = {
 
 export function Modal({ isOpen, onClose, title, children, size = 'md', className }: ModalProps) {
     const overlayRef = useRef<HTMLDivElement>(null);
+    const [mounted, setMounted] = useState(false);
 
     useEffect(() => {
+        setMounted(true);
         if (isOpen) {
             document.body.style.overflow = 'hidden';
         } else {
@@ -42,19 +43,16 @@ export function Modal({ isOpen, onClose, title, children, size = 'md', className
         return () => window.removeEventListener('keydown', handleEscape);
     }, [isOpen, onClose]);
 
-    if (!isOpen) return null;
+    if (!isOpen || !mounted) return null;
 
-    return (
+    return createPortal(
         <div
             ref={overlayRef}
-            className="fixed inset-0 z-50 flex items-center justify-center p-4"
+            className="fixed inset-0 z-[999] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-fade-in"
             onClick={(e) => {
                 if (e.target === overlayRef.current) onClose();
             }}
         >
-            {/* Backdrop */}
-            <div className="absolute inset-0 bg-black/40 backdrop-blur-sm animate-fade-in" />
-
             {/* Modal card */}
             <div
                 className={cn(
@@ -76,6 +74,7 @@ export function Modal({ isOpen, onClose, title, children, size = 'md', className
                 )}
                 <div className="p-6">{children}</div>
             </div>
-        </div>
+        </div>,
+        document.body
     );
 }

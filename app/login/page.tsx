@@ -29,6 +29,20 @@ function LoginForm() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ identifier, password }),
             });
+
+            if (!res.ok) {
+                const contentType = res.headers.get('content-type');
+                if (contentType?.includes('text/html')) {
+                    setError('Server mengembalikan error (HTML). Periksa koneksi Database/Supabase.');
+                    setLoading(false);
+                    return;
+                }
+                const errorData = await res.json().catch(() => ({ error: 'Terjadi kesalahan pada server' }));
+                setError(errorData.error || 'Login gagal');
+                setLoading(false);
+                return;
+            }
+
             const data = await res.json();
 
             if (data.success) {
@@ -54,25 +68,45 @@ function LoginForm() {
         }
     };
 
-    const handlePinVerify = async (pin: string) => {
-        const res = await fetch('/api/verify-pin', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ nasabahId: tempUserId, pin, isLogin: true }),
-        });
-        const data = await res.json();
+    const handlePinVerified = async (pin: string) => {
+        try {
+            const res = await fetch('/api/verify-pin', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ userId: tempUserId, pin }),
+            });
 
-        if (data.success) {
-            router.push('/dashboard/nasabah');
-            return true;
-        } else {
-            return false;
+            if (!res.ok) {
+                const contentType = res.headers.get('content-type');
+                if (contentType?.includes('text/html')) {
+                    return { success: false, error: 'Server error (HTML). Cek koneksi DB.' };
+                }
+                const errorData = await res.json().catch(() => ({ error: 'Gagal verifikasi' }));
+                return { success: false, error: errorData.error || 'Gagal verifikasi' };
+            }
+
+            const data = await res.json();
+            if (data.success) {
+                setShowPinModal(false);
+                router.push('/dashboard/nasabah');
+                return { success: true };
+            } else {
+                return { success: false, error: data.error || 'PIN salah' };
+            }
+        } catch (err) {
+            return { success: false, error: 'Terjadi kesalahan sistem' };
         }
+    };
+
+    const handlePinCancel = () => {
+        // If they cancel PIN, we MUST logout to clear the partial session
+        fetch('/api/auth/logout', { method: 'POST' });
+        setShowPinModal(false);
     };
 
     return (
         <>
-            <div className="p-8 shadow-2xl backdrop-blur-xl bg-white/10 border border-white/20 rounded-2xl">
+            <div className="p-8">
                 {registered && (
                     <div className="mb-6 p-3 rounded-lg bg-green-500/20 border border-green-500/50 text-green-200 text-sm text-center">
                         Akun berhasil dibuat! Silakan login.
@@ -129,10 +163,10 @@ function LoginForm() {
 
             <PinModal
                 isOpen={showPinModal}
-                title="Verifikasi Keamanan"
-                description="Masukkan PIN 6-digit Anda untuk melanjutkan"
-                onClose={() => window.location.reload()}
-                onVerify={handlePinVerify}
+                title="Verifikasi PIN"
+                description="Masukkan PIN 6-digit Anda untuk masuk ke dashboard"
+                onClose={handlePinCancel}
+                onVerify={handlePinVerified}
             />
         </>
     );

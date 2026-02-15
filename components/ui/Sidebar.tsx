@@ -16,6 +16,9 @@ import {
     HiOutlineDocumentChartBar,
     HiOutlineChevronLeft,
     HiOutlineArrowRightOnRectangle,
+    HiOutlineListBullet,
+    HiOutlineDocumentText,
+    HiOutlineUserCircle,
 } from 'react-icons/hi2';
 
 interface MenuItem {
@@ -27,6 +30,7 @@ interface MenuItem {
 const menuByRole: Record<UserRole, MenuItem[]> = {
     admin: [
         { label: 'Dashboard', href: '/dashboard/admin', icon: <HiOutlineHome className="w-5 h-5" /> },
+        { label: 'Kelola Pengguna', href: '/dashboard/admin/users', icon: <HiOutlineUsers className="w-5 h-5" /> },
         { label: 'Data Nasabah', href: '/dashboard/admin/nasabah', icon: <HiOutlineUsers className="w-5 h-5" /> },
         { label: 'Transaksi', href: '/dashboard/admin/transactions', icon: <HiOutlineBanknotes className="w-5 h-5" /> },
         { label: 'Transfer', href: '/dashboard/admin/transfers', icon: <HiOutlineArrowsRightLeft className="w-5 h-5" /> },
@@ -39,8 +43,9 @@ const menuByRole: Record<UserRole, MenuItem[]> = {
     ],
     nasabah: [
         { label: 'Dashboard', href: '/dashboard/nasabah', icon: <HiOutlineHome className="w-5 h-5" /> },
-        { label: 'Histori Transaksi', href: '/dashboard/nasabah/transactions', icon: <HiOutlineClock className="w-5 h-5" /> },
-        { label: 'Rekap Transaksi', href: '/dashboard/nasabah/recap', icon: <HiOutlineDocumentChartBar className="w-5 h-5" /> },
+        { label: 'Histori Transaksi', href: '/dashboard/nasabah/transactions', icon: <HiOutlineListBullet className="w-5 h-5" /> },
+        { label: 'Rekap Tabungan', href: '/dashboard/nasabah/recap', icon: <HiOutlineDocumentText className="w-5 h-5" /> },
+        { label: 'Profil Saya', href: '/dashboard/nasabah/profile', icon: <HiOutlineUserCircle className="w-5 h-5" /> },
     ],
 };
 

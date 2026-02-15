@@ -5,7 +5,7 @@ import { Header } from '@/components/ui/Header';
 import { DataTable } from '@/components/ui/DataTable';
 import { Badge } from '@/components/ui/Badge';
 import { Modal } from '@/components/ui/Modal';
-import { FormInput, FormSelect, FormTextarea } from '@/components/ui/FormField';
+import { FormInput, FormSelect, FormTextarea, CurrencyInput } from '@/components/ui/FormField';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { PinModal } from '@/components/ui/PinModal';
 import { formatCurrency, formatDate } from '@/lib/utils';
@@ -60,18 +60,18 @@ export default function AdminTransfersPage() {
         setShowPin(true);
     };
 
-    const handlePinVerified = async (pin: string): Promise<boolean> => {
+    const handlePinVerified = async (pin: string) => {
         const res = await fetch('/api/verify-pin', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ nasabahId: createForm.from_nasabah_id, pin }),
         });
         const data = await res.json();
-        if (!data.success) return false;
+        if (!data.success) return { success: false, error: data.error || 'PIN salah' };
 
         setShowPin(false);
         await submitTransfer();
-        return true;
+        return { success: true };
     };
 
     const submitTransfer = async () => {
@@ -156,7 +156,9 @@ export default function AdminTransfersPage() {
                         value={createForm.from_nasabah_id}
                         onChange={(e) => setCreateForm((f) => ({ ...f, from_nasabah_id: e.target.value }))}
                         placeholder="Pilih pengirim"
-                        options={nasabahList.map((n) => ({ value: n.id, label: `${n.account_number} — ${n.user?.full_name || ''} (${formatCurrency(Number(n.balance))})` }))}
+                        options={nasabahList
+                            .filter(n => n.user?.role === 'nasabah')
+                            .map((n) => ({ value: n.id, label: `${n.account_number} — ${n.user?.full_name || ''} (${formatCurrency(Number(n.balance))})` }))}
                     />
                     <FormSelect
                         label="Penerima"
@@ -164,15 +166,15 @@ export default function AdminTransfersPage() {
                         value={createForm.to_nasabah_id}
                         onChange={(e) => setCreateForm((f) => ({ ...f, to_nasabah_id: e.target.value }))}
                         placeholder="Pilih penerima"
-                        options={nasabahList.filter((n) => n.id !== createForm.from_nasabah_id).map((n) => ({ value: n.id, label: `${n.account_number} — ${n.user?.full_name || ''}` }))}
+                        options={nasabahList
+                            .filter((n) => n.user?.role === 'nasabah' && n.id !== createForm.from_nasabah_id)
+                            .map((n) => ({ value: n.id, label: `${n.account_number} — ${n.user?.full_name || ''}` }))}
                     />
-                    <FormInput
+                    <CurrencyInput
                         label="Jumlah (Rp)"
-                        type="number"
                         required
-                        min={1}
                         value={createForm.amount}
-                        onChange={(e) => setCreateForm((f) => ({ ...f, amount: e.target.value }))}
+                        onChange={(val) => setCreateForm((f) => ({ ...f, amount: val }))}
                     />
                     <FormTextarea
                         label="Keterangan"

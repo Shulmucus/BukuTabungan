@@ -1,38 +1,53 @@
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { NextRequest, NextResponse } from 'next/server';
 
 export async function GET(request: NextRequest) {
     try {
-        const supabase = await createClient();
-        const searchParams = request.nextUrl.searchParams;
-        const page = parseInt(searchParams.get('page') || '1');
-        const pageSize = parseInt(searchParams.get('pageSize') || '10');
-        const search = searchParams.get('search') || '';
+        const supabase = await createClient(); // For auth check
+        const adminClient = createAdminClient(); // For data fetching (bypass RLS recursion)
 
-        // Check admin
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+        // 1. Check if requester is admin
+        const { data: { user: currentUser } } = await supabase.auth.getUser();
+        if (!currentUser) return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
 
-        // RLS will handle the query check (Admin only), but we fail fast for clarity
-        // Since we didn't inject `role` into session JWT, we verify via DB or trust RLS.
-        // Trusting RLS here.
+        const { data: adminCheck } = await supabase.from('users').select('role').eq('id', currentUser.id).single();
+        if (adminCheck?.role !== 'admin') {
+            return NextResponse.json({ success: false, error: 'Access denied' }, { status: 403 });
+        }
 
-        let query = supabase.from('users').select('*', { count: 'exact' });
+        const sp = request.nextUrl.searchParams;
+        const page = parseInt(sp.get('page') || '1');
+        const pageSize = parseInt(sp.get('pageSize') || '10');
+        const search = sp.get('search');
+
+        let query = adminClient
+            .from('users')
+            .select(`
+                *,
+                nasabah_profiles:nasabah_profiles(account_number, transaction_limit)
+            `, { count: 'exact' });
 
         if (search) {
             query = query.or(`username.ilike.%${search}%,email.ilike.%${search}%,full_name.ilike.%${search}%`);
         }
 
-        const { data, count, error } = await query
-            .range((page - 1) * pageSize, page * pageSize - 1)
-            .order('created_at', { ascending: false });
+        const { data, error, count } = await query
+            .order('created_at', { ascending: false })
+            .range((page - 1) * pageSize, page * pageSize - 1);
 
-        if (error) {
-            return NextResponse.json({ success: false, error: error.message }, { status: 500 });
-        }
+        if (error) return NextResponse.json({ success: false, error: error.message }, { status: 500 });
 
-        return NextResponse.json({ success: true, data, total: count });
-    } catch (err) {
+        return NextResponse.json({
+            success: true,
+            data,
+            total: count || 0,
+            page,
+            pageSize,
+            totalPages: Math.ceil((count || 0) / pageSize),
+        });
+    } catch (error) {
+        console.error('GET users error:', error);
         return NextResponse.json({ success: false, error: 'Server error' }, { status: 500 });
     }
 }
